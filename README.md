@@ -3,6 +3,12 @@
 On-premise SDXL hairstyle visualization for professional salons.  
 Clients upload a selfie, pick a style, and see a photorealistic AI preview in seconds — all processed locally, no cloud.
 
+## Screenshots
+
+| Landing page | Studio |
+|---|---|
+| ![Landing page](docs/screenshots/landing.png) | ![Studio](docs/screenshots/studio.png) |
+
 ## Routes
 
 | URL | Description |
