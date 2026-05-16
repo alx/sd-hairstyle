@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""Generate pre-computed demo images for the studio fallback mode.
+
+Runs all 12 hairstyles against the API and saves results into
+public/static/demo/, which the studio serves as fallback when the
+inference backend is unavailable or the visitor hasn't uploaded a selfie.
+
+Also copies the input selfie to public/static/demo/selfie.jpg so the
+studio can display it as the "before" image in demo mode.
+
+Usage:
+    uv run bin/demo-hairstyles selfie.jpg
+    uv run bin/demo-hairstyles selfie.jpg --url http://localhost:5000
+    uv run bin/demo-hairstyles selfie.jpg --seed 42
+    uv run bin/demo-hairstyles selfie.jpg --ids bob,wolf  # regenerate specific styles
+"""
+
+import argparse
+import pathlib
+import shutil
+import sys
+import time
+
+import requests
+
+HAIRCUTS = [
+    {"id": "bob",      "prompt": "chin-length french bob haircut, blunt cut soft inward curve"},
+    {"id": "sidepart", "prompt": "classic side part haircut, tapered sides, polished professional"},
+    {"id": "pixie",    "prompt": "audrey pixie cut, cropped close at nape, longer fringe on top"},
+    {"id": "lob",      "prompt": "layered lob, collarbone length hair, face-framing layers"},
+    {"id": "mullet",   "prompt": "modern mullet, short on top long in back, razor-cut texture"},
+    {"id": "fade",     "prompt": "high skin fade with pompadour, volume on top, urban style"},
+    {"id": "asym",     "prompt": "asymmetric shag, one side dramatically shorter, bold layered haircut"},
+    {"id": "wolf",     "prompt": "wolf cut hairstyle, shag-mullet mix, heavy crown wispy ends"},
+    {"id": "slick",    "prompt": "slicked-back hair, all hair pulled straight back, strong silhouette"},
+    {"id": "crop",     "prompt": "french crop haircut, short blunt fringe, cropped sides"},
+    {"id": "curtain",  "prompt": "curtain bangs, center-parted fringe framing cheekbones"},
+    {"id": "blunt",    "prompt": "blunt one-length hair, no layers, mirror-shine ends"},
+]
+
+HAIRCUTS_DIR = pathlib.Path("public/static/haircuts")
+OUT_DIR      = pathlib.Path("public/static/demo")
+
+
+def run(
+    selfie_path: pathlib.Path,
+    base_url: str,
+    seed: int,
+    target_ids: set,
+) -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    cuts    = [c for c in HAIRCUTS if not target_ids or c["id"] in target_ids]
+    total   = len(cuts)
+    ok      = 0
+    skipped = 0
+
+    # Copy selfie to demo dir so the studio can display it as the "before" image
+    demo_selfie = OUT_DIR / "selfie.jpg"
+    shutil.copy2(selfie_path, demo_selfie)
+    print(f"Selfie  → {demo_selfie}")
+    print()
+
+    for i, cut in enumerate(cuts, 1):
+        hid    = cut["id"]
+        prompt = cut["prompt"]
+        ref    = HAIRCUTS_DIR / f"{hid}.jpg"
+
+        print(f"[{i:2}/{total}] {hid:<10}", end="  ", flush=True)
+
+        if not ref.exists():
+            print(f"SKIP  (reference image not found: {ref})")
+            skipped += 1
+            continue
+
+        out_file = OUT_DIR / f"{hid}.jpg"
+
+        t0 = time.monotonic()
+        try:
+            with selfie_path.open("rb") as sf, ref.open("rb") as hf:
+                resp = requests.post(
+                    f"{base_url}/transfer-haircut",
+                    files={
+                        "selfie":    ("selfie.jpg", sf, "image/jpeg"),
+                        "hairstyle": (f"{hid}.jpg", hf, "image/jpeg"),
+                    },
+                    data={
+                        "hairstyle_id": hid,
+                        "prompt":       prompt,
+                        "strength":     "0.85",
+                        "steps":        "8",
+                        "cfg_scale":    "3.5",
+                        "seed":         str(seed),
+                    },
+                    timeout=300,
+                )
+        except requests.exceptions.ConnectionError:
+            print("FAIL  (connection refused — is the server running?)")
+            sys.exit(1)
+
+        elapsed = time.monotonic() - t0
+
+        if resp.status_code == 200:
+            out_file.write_bytes(resp.content)
+            tag = "CACHE" if elapsed < 0.5 else "OK   "
+            print(f"{tag}  {elapsed:5.1f}s  → {out_file}")
+            ok += 1
+        else:
+            try:
+                detail = resp.json().get("error", resp.text[:120])
+            except Exception:
+                detail = resp.text[:120]
+            print(f"FAIL  HTTP {resp.status_code}  {detail}")
+
+    print(f"\nDone: {ok} generated, {skipped} skipped, {total - ok - skipped} failed  →  {OUT_DIR}/")
+    if ok > 0:
+        print("Studio demo fallback is ready. Restart the server and visit /studio.")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate pre-computed demo images for the studio fallback."
+    )
+    parser.add_argument("selfie",   help="Path to the input selfie image")
+    parser.add_argument("--url",    default="http://localhost:5000", help="API base URL")
+    parser.add_argument("--seed",   type=int, default=42,            help="Fixed seed for reproducibility")
+    parser.add_argument("--ids",    default="",                      help="Comma-separated style IDs to regenerate (default: all)")
+    args = parser.parse_args()
+
+    selfie_path = pathlib.Path(args.selfie)
+    if not selfie_path.exists():
+        print(f"Error: selfie not found: {selfie_path}", file=sys.stderr)
+        sys.exit(1)
+
+    target_ids = set(args.ids.split(",")) if args.ids else set()
+
+    run(selfie_path, args.url.rstrip("/"), args.seed, target_ids)
+
+
+if __name__ == "__main__":
+    main()

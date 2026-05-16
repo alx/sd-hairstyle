@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""Generate haircut reference images using local SDXL (txt2img).
+
+Usage:
+    uv run bin/gen-haircut-refs               # generate all 12
+    uv run bin/gen-haircut-refs --ids bob,pixie  # regenerate specific cuts
+    uv run bin/gen-haircut-refs --list        # print ids and exit
+"""
+
+import argparse
+import os
+import pathlib
+import sys
+
+# Allow running from any working directory
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+
+import torch
+from diffusers import DPMSolverSinglestepScheduler, StableDiffusionXLPipeline
+from PIL import Image
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+MODEL_PATH = os.getenv(
+    "SD_MODEL",
+    "./models/turbovisionxlSuperFastXLBasedOnNew_tvxlV431Bakedvae.safetensors",
+)
+OUT_DIR = pathlib.Path("public/static/haircuts")
+WIDTH, HEIGHT = 768, 1024
+
+# Prepended to every prompt; kept separate so HAIRCUTS entries stay concise
+# and can be reused as-is in the transfer pipeline.
+PROMPT_PREFIX = "portrait, studio lighting, photorealistic, high detail face, sharp focus, "
+NEGATIVE = (
+    "deformed, blurry, bad anatomy, low quality, cartoon, painting, "
+    "multiple faces, watermark, text, extra limbs, cropped, mutated"
+)
+
+# ── Haircut catalog (mirrors data.jsx) ───────────────────────────────────────
+# prompt = style description only (no quality tokens, no gender)
+
+HAIRCUTS = [
+    {"id": "bob",      "prompt": "chin-length french bob haircut, blunt cut soft inward curve",         "seed": 1001},
+    {"id": "sidepart", "prompt": "classic side part haircut, tapered sides, polished professional",     "seed": 1002},
+    {"id": "pixie",    "prompt": "audrey pixie cut, cropped close at nape, longer fringe on top",       "seed": 1003},
+    {"id": "lob",      "prompt": "layered lob, collarbone length hair, face-framing layers",            "seed": 1004},
+    {"id": "mullet",   "prompt": "modern mullet, short on top long in back, razor-cut texture",         "seed": 1005},
+    {"id": "fade",     "prompt": "high skin fade with pompadour, volume on top, urban style",           "seed": 1006},
+    {"id": "asym",     "prompt": "asymmetric shag, one side dramatically shorter, bold layered haircut","seed": 1007},
+    {"id": "wolf",     "prompt": "wolf cut hairstyle, shag-mullet mix, heavy crown wispy ends",         "seed": 1008},
+    {"id": "slick",    "prompt": "slicked-back hair, all hair pulled straight back, strong silhouette", "seed": 1009},
+    {"id": "crop",     "prompt": "french crop haircut, short blunt fringe, cropped sides",              "seed": 1010},
+    {"id": "curtain",  "prompt": "curtain bangs, center-parted fringe framing cheekbones",              "seed": 1011},
+    {"id": "blunt",    "prompt": "blunt one-length hair, no layers, mirror-shine ends",                 "seed": 1012},
+]
+
+# ── Pipeline ──────────────────────────────────────────────────────────────────
+
+_pipe = None
+
+def get_pipe():
+    global _pipe
+    if _pipe is not None:
+        return _pipe
+
+    print(f"Loading model: {MODEL_PATH}")
+    pipe = StableDiffusionXLPipeline.from_single_file(
+        MODEL_PATH,
+        torch_dtype=torch.float16,
+        use_safetensors=True,
+    )
+    pipe.scheduler = DPMSolverSinglestepScheduler.from_config(
+        pipe.scheduler.config,
+        use_karras_sigmas=True,
+        algorithm_type="dpmsolver++",
+    )
+    # Do NOT call .to("cuda") — enable_sequential_cpu_offload manages devices.
+    # This mirrors the ControlNet pipeline in app.py and works even when Flask's
+    # base pipeline is already occupying the GPU (~6.5 GiB).
+    pipe.vae.enable_tiling()
+    pipe.vae.enable_slicing()
+    pipe.enable_attention_slicing()
+    pipe.enable_sequential_cpu_offload()
+    _pipe = pipe
+    return pipe
+
+
+# ── Generation ────────────────────────────────────────────────────────────────
+
+def generate(cut: dict, pipe) -> Image.Image:
+    full_prompt = PROMPT_PREFIX + cut["prompt"]
+    generator = torch.Generator("cuda").manual_seed(cut["seed"])
+    result = pipe(
+        prompt=full_prompt,
+        negative_prompt=NEGATIVE,
+        width=WIDTH,
+        height=HEIGHT,
+        num_inference_steps=20,
+        guidance_scale=7.0,
+        generator=generator,
+    )
+    return result.images[0]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ids", help="Comma-separated haircut ids to regenerate")
+    parser.add_argument("--list", action="store_true", help="Print all ids and exit")
+    args = parser.parse_args()
+
+    if args.list:
+        for c in HAIRCUTS:
+            print(f"  {c['id']:10}  {c['prompt']}")
+        return
+
+    target_ids = set(args.ids.split(",")) if args.ids else {c["id"] for c in HAIRCUTS}
+    cuts = [c for c in HAIRCUTS if c["id"] in target_ids]
+    if not cuts:
+        print("No matching ids found.")
+        return
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    pipe = get_pipe()
+
+    for cut in cuts:
+        out_path = OUT_DIR / f"{cut['id']}.jpg"
+        print(f"  [{cut['id']}] {cut['prompt']}")
+        img = generate(cut, pipe)
+        img.save(out_path, "JPEG", quality=92, optimize=True)
+        print(f"         → {out_path}")
+
+    print(f"\nDone. {len(cuts)} image(s) saved to {OUT_DIR}/")
+
+
+if __name__ == "__main__":
+    main()

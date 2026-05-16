@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Maison Coupe — AI Hairstyle Visualization for Salons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600&display=swap" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #f6f1ea;
+      --bg-soft:    #ede4d6;
+      --surface:    #ffffff;
+      --ink:        #2a1f17;
+      --ink-soft:   #6b5a4c;
+      --ink-faint:  #a89784;
+      --line:       #e0d3c0;
+      --accent:     #c4592c;
+      --accent-soft:#f1d8c8;
+      --r:          4px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* ── Typography ──────────────────────────────────────────── */
+    h1, h2, h3, .serif { font-family: 'Cormorant Garamond', Georgia, serif; }
+
+    h1 { font-size: clamp(2.4rem, 5vw, 4rem); font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; }
+    h2 { font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 500; line-height: 1.2; }
+    h3 { font-size: 1.25rem; font-weight: 500; }
+    p  { color: var(--ink-soft); }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .wrap  { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+    .wrap-sm { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    section { padding: 96px 0; }
+    section + section { border-top: 1px solid var(--line); }
+
+    /* ── Nav ─────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(246,241,234,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+      padding: 0 24px;
+    }
+    .nav-inner {
+      max-width: 1120px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.25rem; font-weight: 600; letter-spacing: .04em; text-decoration: none; color: var(--ink); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a { font-size: .875rem; font-weight: 500; text-decoration: none; color: var(--ink-soft); transition: color .15s; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { font-size: .875rem; font-weight: 600; padding: 8px 20px; border-radius: var(--r); background: var(--ink); color: var(--bg); text-decoration: none; transition: opacity .15s; }
+    .nav-cta:hover { opacity: .8; }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn {
+      display: inline-block; font-size: .9375rem; font-weight: 600;
+      padding: 14px 32px; border-radius: var(--r);
+      text-decoration: none; transition: opacity .15s, transform .1s;
+      cursor: pointer; border: none;
+    }
+    .btn:active { transform: scale(.98); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { opacity: .88; }
+    .btn-ghost   { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+    .btn-ghost:hover { border-color: var(--ink-soft); }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    .hero {
+      padding: 120px 0 96px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+    .hero-eyebrow {
+      font-size: .75rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 20px;
+    }
+    .hero h1 { margin-bottom: 24px; }
+    .hero p   { font-size: 1.125rem; margin-bottom: 40px; max-width: 480px; }
+    .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    .hero-note { font-size: .8125rem; color: var(--ink-faint); }
+
+    .hero-visual {
+      background: var(--bg-soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      aspect-ratio: 4/5;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero-visual-label {
+      font-size: .6875rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--ink-faint); padding: 16px 20px 0;
+    }
+    .before-after {
+      flex: 1;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; padding: 12px 16px 16px;
+    }
+    .ba-card {
+      border-radius: 6px; background: var(--bg);
+      border: 1px solid var(--line);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px 12px; gap: 10px;
+    }
+    .ba-card-label { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+    .silhouette-demo {
+      width: 64px; height: 80px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .arrow-between {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 32px; height: 32px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem; color: var(--ink-soft); z-index: 2;
+    }
+    .demo-pill {
+      margin: 0 16px 16px;
+      background: var(--accent-soft);
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-size: .8125rem; color: var(--accent);
+      font-weight: 600; text-align: center;
+    }
+
+    /* ── Stats strip ─────────────────────────────────────────── */
+    .stats {
+      padding: 48px 0;
+      background: var(--bg-soft);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 32px; text-align: center;
+    }
+    .stat-number { font-family: 'Cormorant Garamond', serif; font-size: 2.5rem; font-weight: 600; color: var(--ink); }
+    .stat-label  { font-size: .8125rem; color: var(--ink-faint); margin-top: 4px; }
+
+    /* ── Features ────────────────────────────────────────────── */
+    .features-header { text-align: center; margin-bottom: 64px; }
+    .features-header p { margin: 16px auto 0; max-width: 540px; font-size: 1.0625rem; }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 36px 32px;
+    }
+    .feature-icon {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--accent-soft);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .feature-icon svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.8; }
+    .feature-card h3 { margin-bottom: 10px; }
+    .feature-card p { font-size: .9375rem; line-height: 1.65; }
+
+    /* ── How it works ────────────────────────────────────────── */
+    .how-header { text-align: center; margin-bottom: 64px; }
+    .how-header p { margin: 16px auto 0; max-width: 500px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 48px; position: relative; }
+    .steps::before {
+      content: '';
+      position: absolute; top: 28px; left: calc(16.67% + 28px); right: calc(16.67% + 28px);
+      height: 1px; background: var(--line);
+    }
+    .step { text-align: center; }
+    .step-num {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--bg-soft); border: 1px solid var(--line);
+      font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 500;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px; position: relative; z-index: 1;
+      color: var(--ink);
+    }
+    .step h3 { margin-bottom: 8px; }
+    .step p { font-size: .9rem; }
+
+    /* ── Benefits ────────────────────────────────────────────── */
+    .benefits { background: var(--ink); color: var(--bg); }
+    .benefits h2, .benefits p { color: inherit; }
+    .benefits p { color: rgba(246,241,234,.7); }
+    .benefits-header { text-align: center; margin-bottom: 64px; }
+    .benefits-header p { margin: 16px auto 0; max-width: 520px; opacity: .75; }
+    .benefits-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
+    .benefit-item {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      padding: 36px 40px;
+      border-radius: 2px;
+    }
+    .benefit-item h3 { color: var(--bg); margin-bottom: 8px; font-size: 1.1rem; }
+    .benefit-item p  { font-size: .9rem; color: rgba(246,241,234,.6); line-height: 1.65; }
+    .benefit-num {
+      font-family: 'Cormorant Garamond', serif; font-size: 2rem; color: var(--accent);
+      font-weight: 600; margin-bottom: 12px; display: block;
+    }
+
+    /* ── Styles catalog ──────────────────────────────────────── */
+    .catalog-header { text-align: center; margin-bottom: 48px; }
+    .catalog-header p { margin: 16px auto 0; max-width: 500px; }
+    .catalog-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .catalog-item {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 6px; padding: 20px 16px; text-align: center;
+    }
+    .catalog-img {
+      width: 100%; aspect-ratio: 3/4; object-fit: cover;
+      border-radius: 4px; margin-bottom: 12px;
+      background: var(--bg-soft);
+    }
+    .catalog-item-name { font-size: .875rem; font-weight: 600; color: var(--ink); }
+    .catalog-item-mood { font-size: .75rem; color: var(--ink-faint); margin-top: 2px; }
+
+    /* ── Pricing ─────────────────────────────────────────────── */
+    .pricing-header { text-align: center; margin-bottom: 64px; }
+    .pricing-header p { margin: 16px auto 0; max-width: 480px; }
+    .pricing-card {
+      max-width: 560px; margin: 0 auto;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; overflow: hidden;
+    }
+    .pricing-top {
+      background: var(--ink); color: var(--bg);
+      padding: 48px 48px 40px; text-align: center;
+    }
+    .pricing-top h3 { font-size: 1.5rem; color: var(--bg); margin-bottom: 8px; }
+    .pricing-top p  { color: rgba(246,241,234,.65); font-size: .9375rem; }
+    .pricing-price {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 3rem; font-weight: 600; color: var(--bg);
+      margin: 20px 0 4px;
+    }
+    .pricing-price span { font-size: 1rem; font-weight: 400; opacity: .6; font-family: 'Inter', sans-serif; }
+    .pricing-body { padding: 40px 48px; }
+    .pricing-features { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
+    .pricing-features li {
+      display: flex; gap: 12px; align-items: flex-start;
+      font-size: .9375rem; color: var(--ink-soft);
+    }
+    .pricing-features li::before {
+      content: '✓'; color: var(--accent); font-weight: 700;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .pricing-cta { display: block; text-align: center; }
+
+    /* ── Demo form ───────────────────────────────────────────── */
+    .form-section { background: var(--bg-soft); }
+    .form-header { text-align: center; margin-bottom: 48px; }
+    .form-header p { margin: 16px auto 0; max-width: 480px; }
+    .form-card {
+      max-width: 600px; margin: 0 auto;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 12px; padding: 48px;
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+    .field label { font-size: .8125rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-soft); }
+    .field input, .field textarea, .field select {
+      padding: 11px 14px; border-radius: var(--r);
+      border: 1.5px solid var(--line);
+      background: var(--bg); color: var(--ink);
+      font-family: inherit; font-size: .9375rem;
+      transition: border-color .15s;
+      outline: none;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: var(--ink-soft);
+    }
+    .field textarea { resize: vertical; min-height: 110px; }
+    .form-submit { width: 100%; margin-top: 8px; font-size: 1rem; padding: 16px; }
+    .form-note { text-align: center; font-size: .8125rem; color: var(--ink-faint); margin-top: 16px; }
+
+    .form-success {
+      display: none; text-align: center;
+      padding: 48px; background: var(--surface);
+      border: 1px solid var(--line); border-radius: 12px;
+    }
+    .form-success-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--accent-soft); margin: 0 auto 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem;
+    }
+    .form-success h3 { font-size: 1.5rem; margin-bottom: 8px; }
+    .form-success p { max-width: 360px; margin: 0 auto; }
+
+    /* ── Studio teaser ───────────────────────────────────────── */
+    .studio-teaser { text-align: center; }
+    .studio-teaser p { margin: 16px auto 32px; max-width: 480px; }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 40px 24px;
+    }
+    .footer-inner {
+      max-width: 1120px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-brand { font-family: 'Cormorant Garamond', serif; font-size: 1rem; font-weight: 600; letter-spacing: .04em; color: var(--ink); }
+    .footer-meta  { font-size: .8125rem; color: var(--ink-faint); }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .hero               { grid-template-columns: 1fr; }
+      .hero-visual        { aspect-ratio: 16/9; }
+      .features-grid      { grid-template-columns: 1fr; gap: 20px; }
+      .steps              { grid-template-columns: 1fr; gap: 32px; }
+      .steps::before      { display: none; }
+      .benefits-grid      { grid-template-columns: 1fr; }
+      .catalog-grid       { grid-template-columns: repeat(2, 1fr); }
+      .stats-grid         { grid-template-columns: 1fr; gap: 24px; }
+      .form-row           { grid-template-columns: 1fr; }
+      .form-card          { padding: 32px 24px; }
+      .pricing-body       { padding: 32px 24px; }
+      .pricing-top        { padding: 36px 24px; }
+    }
+    @media (max-width: 600px) {
+      section             { padding: 64px 0; }
+      .nav-links          { display: none; }
+      .hero               { padding: 72px 0 64px; }
+      .catalog-grid       { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">MAISON COUPE</a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#styles">Styles</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+    </ul>
+    <a class="nav-cta" href="#demo">Request a demo</a>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────────── -->
+<section style="padding: 0; border: none;">
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-copy">
+        <p class="hero-eyebrow">AI Hairstyle Visualization</p>
+        <h1>Let clients see their next look — before the first snip</h1>
+        <p>Maison Coupe gives your salon a private, on-premise AI that shows clients exactly how a new hairstyle will look on them. No subscriptions. No cloud uploads. Just confident clients and fewer second thoughts.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#demo">Request a demo</a>
+          <a class="btn btn-ghost" href="/studio">Try the studio →</a>
+        </div>
+        <p class="hero-note" style="margin-top: 16px;">Ships with a pre-configured GPU workstation. Plug in and start.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats ────────────────────────────────────────────────────── -->
+<div class="stats">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div>
+        <div class="stat-number">12</div>
+        <div class="stat-label">Curated hairstyle styles</div>
+      </div>
+      <div>
+        <div class="stat-number">&lt;10s</div>
+        <div class="stat-label">Average preview generation time</div>
+      </div>
+      <div>
+        <div class="stat-number">100%</div>
+        <div class="stat-label">On-premise — client data never leaves your salon</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────────── -->
+<section id="features">
+  <div class="wrap">
+    <div class="features-header">
+      <h2>Built for salons, not data centers</h2>
+      <p>Everything runs locally on a dedicated GPU workstation. Fast, private, and completely yours.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2zm0 12c5.33 0 8 2.67 8 4v2H4v-2c0-1.33 2.67-4 8-4z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Instant client consultations</h3>
+        <p>Upload a selfie, pick a style, and show a photorealistic preview in seconds — right at the styling chair. No more guessing or flipping through magazines.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Fully private, no cloud</h3>
+        <p>All processing happens on hardware inside your salon. Client photos are never sent to external servers, never stored permanently, never shared. Compliance is effortless.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Zero recurring costs</h3>
+        <p>One purchase, one setup, zero monthly fees. After delivery your system runs independently — no API keys to renew, no subscription tiers, no usage caps.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ──────────────────────────────────────────────── -->
+<section id="how-it-works">
+  <div class="wrap">
+    <div class="how-header">
+      <h2>Three steps at the chair</h2>
+      <p>Your clients go from "I'm not sure" to "yes, let's do it" in the time it takes to brew an espresso.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Take a selfie</h3>
+        <p>Client holds their phone or uses the salon tablet. Any well-lit photo works.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Choose a style</h3>
+        <p>Browse 12 curated cuts — classic, edgy, minimal — and tap one to visualize.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>See the result</h3>
+        <p>The AI renders a photorealistic preview on the client's face in seconds. Book it or try another.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Benefits ──────────────────────────────────────────────────── -->
+<section class="benefits">
+  <div class="wrap">
+    <div class="benefits-header">
+      <h2>Why salons choose Maison Coupe</h2>
+      <p>The ROI shows up in your booking calendar within the first week.</p>
+    </div>
+    <div class="benefits-grid">
+      <div class="benefit-item">
+        <span class="benefit-num">01</span>
+        <h3>Reduce consultation time by half</h3>
+        <p>Stop spending 20 minutes describing what a lob looks like. Show it. Clients decide faster when they can see.</p>
+      </div>
+      <div class="benefit-item">
+        <span class="benefit-num">02</span>
+        <h3>Increase premium service conversion</h3>
+        <p>Clients are significantly more likely to commit to a dramatic change — color, major cut, texture — after seeing a realistic preview.</p>
+      </div>
+      <div class="benefit-item">
+        <span class="benefit-num">03</span>
+        <h3>Stand out from every competitor</h3>
+        <p>AI hairstyle visualization is still rare in salons. Offering it signals that your salon invests in the client experience.</p>
+      </div>
+      <div class="benefit-item">
+        <span class="benefit-num">04</span>
+        <h3>Works with your existing hardware</h3>
+        <p>No iPads to replace, no new software subscriptions. We deliver a ready-to-run workstation that plugs into your network in under five minutes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Style catalog ─────────────────────────────────────────────── -->
+<section id="styles">
+  <div class="wrap">
+    <div class="catalog-header">
+      <h2>12 curated styles, ready to visualize</h2>
+      <p>Each style is hand-crafted for accurate visualization — not generic AI templates. New styles ship with software updates.</p>
+    </div>
+    <div class="catalog-grid">
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/bob.jpg" alt="French Bob" loading="lazy" />
+        <div class="catalog-item-name">French Bob</div>
+        <div class="catalog-item-mood">Classic · Short</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/sidepart.jpg" alt="Side Part" loading="lazy" />
+        <div class="catalog-item-name">Side Part</div>
+        <div class="catalog-item-mood">Classic · Medium</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/pixie.jpg" alt="Audrey Pixie" loading="lazy" />
+        <div class="catalog-item-name">Audrey Pixie</div>
+        <div class="catalog-item-mood">Classic · Short</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/lob.jpg" alt="Layered Lob" loading="lazy" />
+        <div class="catalog-item-name">Layered Lob</div>
+        <div class="catalog-item-mood">Classic · Medium</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/mullet.jpg" alt="Modern Mullet" loading="lazy" />
+        <div class="catalog-item-name">Modern Mullet</div>
+        <div class="catalog-item-mood">Edgy · Medium</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/fade.jpg" alt="Skin Fade" loading="lazy" />
+        <div class="catalog-item-name">Skin Fade</div>
+        <div class="catalog-item-mood">Edgy · Short</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/asym.jpg" alt="Asymmetric Shag" loading="lazy" />
+        <div class="catalog-item-name">Asymmetric Shag</div>
+        <div class="catalog-item-mood">Edgy · Medium</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/wolf.jpg" alt="Wolf Cut" loading="lazy" />
+        <div class="catalog-item-name">Wolf Cut</div>
+        <div class="catalog-item-mood">Edgy · Long</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/slick.jpg" alt="Slick Back" loading="lazy" />
+        <div class="catalog-item-name">Slick Back</div>
+        <div class="catalog-item-mood">Minimal · Medium</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/crop.jpg" alt="French Crop" loading="lazy" />
+        <div class="catalog-item-name">French Crop</div>
+        <div class="catalog-item-mood">Minimal · Short</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/curtain.jpg" alt="Curtain Bangs" loading="lazy" />
+        <div class="catalog-item-name">Curtain Bangs</div>
+        <div class="catalog-item-mood">Minimal · Long</div>
+      </div>
+      <div class="catalog-item">
+        <img class="catalog-img" src="static/haircuts/blunt.jpg" alt="Blunt One-Length" loading="lazy" />
+        <div class="catalog-item-name">Blunt One-Length</div>
+        <div class="catalog-item-mood">Minimal · Long</div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top: 48px;">
+      <a class="btn btn-ghost" href="/studio">Try the live studio →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ────────────────────────────────────────────────────── -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="pricing-header">
+      <h2>Simple, transparent pricing</h2>
+      <p>One custom installation, fully yours. No seat licences, no monthly bills, no surprises.</p>
+    </div>
+    <div class="pricing-card">
+      <div class="pricing-top">
+        <h3>Salon Custom Instance</h3>
+        <p>A dedicated system configured for your salon and delivered ready to run.</p>
+        <div class="pricing-price">Custom <span>/ one-time</span></div>
+        <p style="font-size:.8125rem; margin-top: 4px; opacity:.5;">Contact us for a quote tailored to your setup</p>
+      </div>
+      <div class="pricing-body">
+        <ul class="pricing-features">
+          <li>Pre-configured GPU workstation, shipped and installed</li>
+          <li>All 12 hairstyle styles included, more on request</li>
+          <li>On-site setup and staff walkthrough</li>
+          <li>12 months of software updates and support</li>
+          <li>White-label option — your salon branding, not ours</li>
+          <li>Client data never leaves your premises</li>
+        </ul>
+        <a class="btn btn-primary pricing-cta" href="#demo">Request a quote</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Demo request form ─────────────────────────────────────────── -->
+<section class="form-section" id="demo">
+  <div class="wrap-sm">
+    <div class="form-header">
+      <h2>Request a demo</h2>
+      <p>We'll reach out within one business day to arrange a live demonstration at your salon — or via video call.</p>
+    </div>
+
+    <div class="form-card" id="form-card">
+      <form id="demo-form" action="https://formspree.io/f/mjglnpjd" method="POST" novalidate>
+        <div class="form-row">
+          <div class="field">
+            <label for="f-name">Your name</label>
+            <input id="f-name" name="name" type="text" placeholder="Sophie Martin" required />
+          </div>
+          <div class="field">
+            <label for="f-salon">Salon name</label>
+            <input id="f-salon" name="salon" type="text" placeholder="Atelier Lumière" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-email">Email address</label>
+          <input id="f-email" name="email" type="email" placeholder="sophie@atelierlumiere.fr" required />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="f-city">City</label>
+            <input id="f-city" name="city" type="text" placeholder="Paris" />
+          </div>
+          <div class="field">
+            <label for="f-size">Salon size</label>
+            <select id="f-size" name="salon_size">
+              <option value="">Select…</option>
+              <option>Solo / independent</option>
+              <option>2–5 stylists</option>
+              <option>6–15 stylists</option>
+              <option>16+ stylists / group</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-message">Anything to add? (optional)</label>
+          <textarea id="f-message" name="message" placeholder="Tell us about your salon or what you'd like to see in the demo…"></textarea>
+        </div>
+        <button class="btn btn-primary form-submit" type="submit">Send demo request</button>
+        <p class="form-note">We respect your privacy. Your details are used only to schedule your demo.</p>
+      </form>
+    </div>
+
+    <div class="form-success" id="form-success">
+      <div class="form-success-icon">✓</div>
+      <h3>Request received</h3>
+      <p>Thank you — we'll be in touch within one business day to arrange your demo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Studio teaser ─────────────────────────────────────────────── -->
+<section>
+  <div class="wrap">
+    <div class="studio-teaser">
+      <h2>Curious? Try it yourself.</h2>
+      <p>The live studio is open. Upload a photo and see what our AI can do — no account needed.</p>
+      <a class="btn btn-primary" href="/studio">Open the studio</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <span class="footer-brand">MAISON COUPE</span>
+    <span class="footer-meta">AI hairstyle visualization for professional salons</span>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('demo-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name  = document.getElementById('f-name').value.trim();
+    const email = document.getElementById('f-email').value.trim();
+    const salon = document.getElementById('f-salon').value.trim();
+    if (!name || !email || !salon) {
+      alert('Please fill in your name, salon name, and email address.');
+      return;
+    }
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch(this.action, {
+        method: 'POST',
+        body: new FormData(this),
+        headers: { 'Accept': 'application/json' },
+      });
+      if (res.ok) {
+        document.getElementById('form-card').style.display    = 'none';
+        document.getElementById('form-success').style.display = 'block';
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Send demo request';
+        alert('There was a problem sending your request. Please try again or email us directly.');
+      }
+    } catch (_) {
+      btn.disabled = false;
+      btn.textContent = 'Send demo request';
+      alert('Could not connect. Please check your internet connection and try again.');
+    }
+  });
+</script>
+
+</body>
+</html>

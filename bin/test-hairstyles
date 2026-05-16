@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Test all available hairstyles from a single selfie image.
+
+Sends one request per hairstyle to the running API server and saves the results.
+On the second run with the same selfie the server returns cached images instantly.
+
+Usage:
+    uv run bin/test-hairstyles selfie.jpg
+    uv run bin/test-hairstyles selfie.jpg --url http://localhost:5000
+    uv run bin/test-hairstyles selfie.jpg --out-dir work/test_out
+"""
+
+import argparse
+import pathlib
+import sys
+import time
+
+import requests
+
+HAIRCUTS = [
+    {"id": "bob",      "prompt": "chin-length french bob haircut, blunt cut soft inward curve"},
+    {"id": "sidepart", "prompt": "classic side part haircut, tapered sides, polished professional"},
+    {"id": "pixie",    "prompt": "audrey pixie cut, cropped close at nape, longer fringe on top"},
+    {"id": "lob",      "prompt": "layered lob, collarbone length hair, face-framing layers"},
+    {"id": "mullet",   "prompt": "modern mullet, short on top long in back, razor-cut texture"},
+    {"id": "fade",     "prompt": "high skin fade with pompadour, volume on top, urban style"},
+    {"id": "asym",     "prompt": "asymmetric shag, one side dramatically shorter, bold layered haircut"},
+    {"id": "wolf",     "prompt": "wolf cut hairstyle, shag-mullet mix, heavy crown wispy ends"},
+    {"id": "slick",    "prompt": "slicked-back hair, all hair pulled straight back, strong silhouette"},
+    {"id": "crop",     "prompt": "french crop haircut, short blunt fringe, cropped sides"},
+    {"id": "curtain",  "prompt": "curtain bangs, center-parted fringe framing cheekbones"},
+    {"id": "blunt",    "prompt": "blunt one-length hair, no layers, mirror-shine ends"},
+]
+
+HAIRCUTS_DIR = pathlib.Path("public/static/haircuts")
+
+
+def run(selfie_path: pathlib.Path, base_url: str, out_dir: pathlib.Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    total   = len(HAIRCUTS)
+    ok      = 0
+    skipped = 0
+
+    for i, cut in enumerate(HAIRCUTS, 1):
+        hid    = cut["id"]
+        prompt = cut["prompt"]
+        ref    = HAIRCUTS_DIR / f"{hid}.jpg"
+
+        print(f"[{i:2}/{total}] {hid:<10}", end="  ", flush=True)
+
+        if not ref.exists():
+            print(f"SKIP  (reference image not found: {ref})")
+            skipped += 1
+            continue
+
+        out_file = out_dir / f"{hid}.jpg"
+
+        t0 = time.monotonic()
+        try:
+            with selfie_path.open("rb") as sf, ref.open("rb") as hf:
+                resp = requests.post(
+                    f"{base_url}/transfer-haircut",
+                    files={
+                        "selfie":    ("selfie.jpg", sf, "image/jpeg"),
+                        "hairstyle": (f"{hid}.jpg", hf, "image/jpeg"),
+                    },
+                    data={
+                        "hairstyle_id": hid,
+                        "prompt":       prompt,
+                        "strength":     "0.85",
+                        "steps":        "8",
+                        "cfg_scale":    "3.5",
+                        "seed":         "-1",
+                    },
+                    timeout=300,
+                )
+        except requests.exceptions.ConnectionError:
+            print("FAIL  (connection refused — is the server running?)")
+            sys.exit(1)
+
+        elapsed = time.monotonic() - t0
+
+        if resp.status_code == 200:
+            out_file.write_bytes(resp.content)
+            tag = "CACHE" if elapsed < 0.5 else "OK   "
+            print(f"{tag}  {elapsed:5.1f}s  → {out_file}")
+            ok += 1
+        else:
+            try:
+                detail = resp.json().get("error", resp.text[:120])
+            except Exception:
+                detail = resp.text[:120]
+            print(f"FAIL  HTTP {resp.status_code}  {detail}")
+
+    print(f"\nDone: {ok} succeeded, {skipped} skipped, {total - ok - skipped} failed  →  {out_dir}/")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Test all hairstyles from a single selfie.")
+    parser.add_argument("selfie",    help="Path to the input selfie image")
+    parser.add_argument("--url",     default="http://localhost:5000", help="API base URL")
+    parser.add_argument("--out-dir", default="work/test_out",         help="Output directory")
+    args = parser.parse_args()
+
+    selfie_path = pathlib.Path(args.selfie)
+    if not selfie_path.exists():
+        print(f"Error: selfie not found: {selfie_path}", file=sys.stderr)
+        sys.exit(1)
+
+    run(selfie_path, args.url.rstrip("/"), pathlib.Path(args.out_dir))
+
+
+if __name__ == "__main__":
+    main()
