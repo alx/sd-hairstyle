@@ -1110,3 +1110,24 @@ h1, h2, h3, .display {
   padding: 2px 4px;
 }
 .api-error button:hover { color: var(--ink); }
+
+/* ── Server-down overlay variants ──────────────────────────────────────── */
+.server-down-scan {
+  background: linear-gradient(180deg, transparent 0%,
+    rgba(196,160,0,0.5) 48%, rgba(196,160,0,0.5) 52%, transparent 100%);
+  background-size: 100% 200%;
+  animation: scan 2.4s cubic-bezier(.5,0,.5,1) infinite;
+  mix-blend-mode: screen;
+  opacity: .4;
+}
+.server-down-spinner { border-top-color: #f5c518; }
+.server-down-bar {
+  background: linear-gradient(90deg, transparent, #f5c518, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.server-down-retry { grid-column: 1 / -1; margin-top: 10px; justify-self: center; }

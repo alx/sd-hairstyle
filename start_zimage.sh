@@ -2,9 +2,9 @@
 set -uo pipefail
 
 # ── Config ────────────────────────────────────────────────────────────────────
-SD_BINARY="${SD_BINARY:-./bin/sd-cli}"
-SD_MODEL="${SD_MODEL:-./models/turbovisionxlSuperFastXLBasedOnNew_tvxlV431Bakedvae.safetensors}"
-SD_VAE="${SD_VAE:-}"
+ZIMAGE_MODEL="${ZIMAGE_MODEL:-Tongyi-MAI/Z-Image-Turbo}"
+ZIMAGE_CONTROLNET_ENABLED="${ZIMAGE_CONTROLNET_ENABLED:-0}"
+ZIMAGE_CONTROLNET_MODEL="${ZIMAGE_CONTROLNET_MODEL:-alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1}"
 API_HOST="0.0.0.0"
 API_PORT="${API_PORT:-5000}"
 
@@ -15,8 +15,8 @@ warn() { echo -e "  ${YELLOW}!${RESET}  $*"; }
 fail() { echo -e "  ${RED}✗${RESET}  $*"; }
 
 echo ""
-echo "Maison Coupe — pre-flight check"
-echo "────────────────────────────────"
+echo "Maison Coupe — pre-flight check (Z-Image backend)"
+echo "──────────────────────────────────────────────────"
 
 errors=0
 
@@ -28,43 +28,37 @@ else
   ok "uv $(uv --version 2>/dev/null | awk '{print $2}')"
 fi
 
-# ── 2. sd-cli binary ──────────────────────────────────────────────────────────
-if [[ ! -f "$SD_BINARY" ]]; then
-  fail "sd-cli not found: $SD_BINARY"
-  warn "Set SD_BINARY=/path/to/sd-cli or place it at ./bin/sd-cli"
-  (( errors++ ))
-elif [[ ! -x "$SD_BINARY" ]]; then
-  fail "sd-cli is not executable: $SD_BINARY"
-  warn "Run: chmod +x $SD_BINARY"
-  (( errors++ ))
-else
-  ok "sd-cli    $SD_BINARY"
-fi
-
-# ── 3. model file ─────────────────────────────────────────────────────────────
-if [[ ! -f "$SD_MODEL" ]]; then
-  fail "Model not found: $SD_MODEL"
-  warn "Set SD_MODEL=/path/to/model.safetensors or place it at ./models/"
-  (( errors++ ))
-else
-  size=$(du -h "$SD_MODEL" 2>/dev/null | cut -f1)
-  ok "model     $SD_MODEL ($size)"
-fi
-
-# ── 4. VAE ────────────────────────────────────────────────────────────────────
-if [[ -n "$SD_VAE" ]]; then
-  if [[ ! -f "$SD_VAE" ]]; then
-    fail "VAE not found: $SD_VAE (SD_VAE is set but file is missing)"
+# ── 2. Z-Image model (local path or HF repo ID) ───────────────────────────────
+if [[ "$ZIMAGE_MODEL" == /* ]]; then
+  # local path
+  if [[ ! -d "$ZIMAGE_MODEL" ]]; then
+    fail "ZIMAGE_MODEL local path not found: $ZIMAGE_MODEL"
     (( errors++ ))
   else
-    size=$(du -h "$SD_VAE" 2>/dev/null | cut -f1)
-    ok "vae       $SD_VAE ($size)"
+    ok "model     $ZIMAGE_MODEL (local)"
   fi
 else
-  ok "vae       baked into model — no external VAE needed"
+  ok "model     $ZIMAGE_MODEL (HuggingFace — downloaded on first run)"
+  warn "First launch downloads ~10GB from HuggingFace Hub"
 fi
 
-# ── 5. Tailscale ──────────────────────────────────────────────────────────────
+# ── 3. ControlNet model (optional) ────────────────────────────────────────────
+if [[ "$ZIMAGE_CONTROLNET_ENABLED" == "1" ]]; then
+  if [[ "$ZIMAGE_CONTROLNET_MODEL" == /* ]]; then
+    if [[ ! -d "$ZIMAGE_CONTROLNET_MODEL" && ! -f "$ZIMAGE_CONTROLNET_MODEL" ]]; then
+      fail "ZIMAGE_CONTROLNET_MODEL not found: $ZIMAGE_CONTROLNET_MODEL"
+      (( errors++ ))
+    else
+      ok "controlnet $ZIMAGE_CONTROLNET_MODEL (local)"
+    fi
+  else
+    ok "controlnet $ZIMAGE_CONTROLNET_MODEL (HuggingFace)"
+  fi
+else
+  ok "controlnet disabled (set ZIMAGE_CONTROLNET_ENABLED=1 to enable)"
+fi
+
+# ── 4. Tailscale ──────────────────────────────────────────────────────────────
 TS_HOST=""
 if ! command -v tailscale &>/dev/null; then
   fail "tailscale not found — install from https://tailscale.com/download"
@@ -83,7 +77,7 @@ else
   fi
 fi
 
-echo "────────────────────────────────"
+echo "──────────────────────────────────────────────────"
 
 if (( errors > 0 )); then
   echo -e "${RED}Pre-flight failed — fix the errors above before starting.${RESET}"
@@ -94,10 +88,8 @@ fi
 # ── Supervisor setup ──────────────────────────────────────────────────────────
 SUPERVISOR_LOG="./work/supervisor.log"
 
-# Tee all supervisor output to a persistent log — survives terminal/pane close
 exec > >(tee -a "$SUPERVISOR_LOG") 2>&1
 
-# Make this bash process harder to OOM-kill than the Python workload
 echo -900 > /proc/self/oom_score_adj 2>/dev/null || true
 
 # ── Tailscale HTTPS proxy ──────────────────────────────────────────────────────
@@ -111,14 +103,12 @@ RESTART_DELAY=5
 _ts() { date -u '+%H:%M:%S'; }
 
 cleanup() {
-  # Guard against re-entrant calls (EXIT trap fires after INT/TERM trap)
   [[ "$SHUTDOWN" -eq 1 ]] && return
   SHUTDOWN=1
   echo ""
   echo "$(_ts) [supervisor] Shutting down…"
   if [[ -n "$APP_PID" ]] && kill -0 "$APP_PID" 2>/dev/null; then
     echo "$(_ts) [supervisor] Sending SIGTERM to process group $APP_PID…"
-    # Kill the entire process group (setsid session leader = APP_PID)
     kill -TERM -"$APP_PID" 2>/dev/null || kill -TERM "$APP_PID" 2>/dev/null || true
     local deadline=$((SECONDS + 15))
     while kill -0 "$APP_PID" 2>/dev/null && (( SECONDS < deadline )); do sleep 1; done
@@ -134,12 +124,15 @@ trap cleanup EXIT INT TERM HUP
 # ── Supervisor loop ────────────────────────────────────────────────────────────
 echo -e "${GREEN}All checks passed.${RESET}"
 echo ""
+echo -e "  Backend:   Z-Image Turbo (diffusers)"
+echo -e "  Model:     ${ZIMAGE_MODEL}"
 echo -e "  Local:     http://127.0.0.1:${API_PORT}"
 echo -e "  Tailscale: https://${TS_HOST}"
 echo -e "  Log:       $SUPERVISOR_LOG"
 echo ""
 
-export LD_LIBRARY_PATH="$(dirname "$(realpath "$SD_BINARY")")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export INFERENCE_BACKEND=zimage
+export ZIMAGE_MODEL ZIMAGE_CONTROLNET_ENABLED ZIMAGE_CONTROLNET_MODEL
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 while true; do
@@ -148,20 +141,16 @@ while true; do
 
   echo -e "$(_ts) [supervisor] ${GREEN}Starting app.py (attempt $((RESTART_COUNT + 1)))…${RESET}"
 
-  # setsid: run app.py in a new session/process group so OOM signals targeting
-  # the Python workload don't cascade to this supervisor bash process
   setsid uv run app.py &
   APP_PID=$!
   echo "$(_ts) [supervisor] app.py PID=$APP_PID"
 
-  # wait returns when the child exits OR when a signal interrupts it
   wait "$APP_PID"
   EXIT_CODE=$?
   APP_PID=""
 
   echo "$(_ts) [supervisor] app.py exited (code=${EXIT_CODE})"
 
-  # Only stop restarting when cleanup() has explicitly requested shutdown
   if (( SHUTDOWN )); then
     echo "$(_ts) [supervisor] Intentional shutdown — not restarting."
     break

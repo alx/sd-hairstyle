@@ -2,6 +2,21 @@
 
 const { useState, useEffect, useMemo } = React;
 
+function useHealthPoller({ active, onRecovered, intervalMs = 3000 }) {
+  const onRecoveredRef = React.useRef(onRecovered);
+  React.useEffect(() => { onRecoveredRef.current = onRecovered; }, [onRecovered]);
+  React.useEffect(() => {
+    if (!active) return;
+    const id = setInterval(async () => {
+      try {
+        const res = await fetch('/health', { cache: 'no-store' });
+        if (res.ok) { const data = await res.json(); if (data.status === 'ok') onRecoveredRef.current(data); }
+      } catch (_) {}
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [active, intervalMs]);
+}
+
 // ── API helpers ────────────────────────────────────────────────
 
 function dataUrlToBlob(dataUrl) {
@@ -164,6 +179,8 @@ function App() {
   const [resultUrl, setResultUrl] = useState(null);      // ObjectURL of the JPEG returned by the API
   const [apiError, setApiError] = useState(null);        // error message string | null
   const [isDemoResult, setIsDemoResult] = useState(false); // true when showing pre-computed fallback
+  const [serverDown, setServerDown] = useState(false);   // true while polling for recovery
+  const [pendingStyle, setPendingStyle] = useState(null); // style to retry when server returns
   const [favorites, setFavorites] = useState(() => {
     try { return JSON.parse(localStorage.getItem('mc.favs') || '[]'); }
     catch (e) { return []; }
@@ -176,8 +193,23 @@ function App() {
 
   const toggleFav = (id) => setFavorites((f) => f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
 
+  useHealthPoller({
+    active: serverDown,
+    onRecovered: React.useCallback(() => {
+      setServerDown(false);
+      setSelfieState('server-recovered');
+    }, []),
+  });
+
+  const onRetry = React.useCallback(() => {
+    if (!pendingStyle) return;
+    const style = pendingStyle;
+    setPendingStyle(null);
+    onTry(style);
+  }, [pendingStyle]);
+
   // canTry: allow clicking even without a selfie — demo fallback will load one
-  const canTry = selfieState !== 'processing';
+  const canTry = selfieState !== 'processing' && selfieState !== 'server-down';
 
   const onTry = async (style) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -232,8 +264,15 @@ function App() {
         setIsDemoResult(false);
         setSelfieState('result');
         return;
-      } catch (_) {
-        // API unavailable — fall through to demo images
+      } catch (err) {
+        // Network-level failure (server down) — show recovery UI, do NOT fall through
+        if (err instanceof TypeError) {
+          setServerDown(true);
+          setPendingStyle(style);
+          setSelfieState('server-down');
+          return;
+        }
+        // Other error (5xx with JSON body) — fall through to demo images
       }
     }
 
@@ -286,6 +325,7 @@ function App() {
                 resultUrl={resultUrl}
                 apiError={apiError}
                 onClearStyle={onClearStyle}
+                onRetry={onRetry}
               />
               {selfieState === 'result' && resultStyle && (
                 <ResultBar

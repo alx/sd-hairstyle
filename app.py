@@ -62,6 +62,26 @@ INSWAPPER_MODEL   = os.getenv(
 )
 # ──────────────────────────────────────────────────────────────
 
+# ── Z-Image backend ───────────────────────────────────────────
+INFERENCE_BACKEND           = os.getenv("INFERENCE_BACKEND", "diffusers")
+# "diffusers" → existing SDXL pipeline (unchanged)
+# "zimage"    → Z-Image Turbo pipelines
+
+ZIMAGE_MODEL                = os.getenv("ZIMAGE_MODEL", "Tongyi-MAI/Z-Image-Turbo")
+ZIMAGE_CONTROLNET_ENABLED   = os.getenv("ZIMAGE_CONTROLNET_ENABLED", "0") == "1"
+ZIMAGE_CONTROLNET_MODEL     = os.getenv(
+    "ZIMAGE_CONTROLNET_MODEL",
+    "alibaba-pai/Z-Image-Turbo-Fun-Controlnet-Union-2.1",
+)
+ZIMAGE_CONTROLNET_STRENGTH  = float(os.getenv("ZIMAGE_CONTROLNET_STRENGTH", "0.75"))
+ZIMAGE_STEPS                = int(os.getenv("ZIMAGE_STEPS", "9"))
+# ──────────────────────────────────────────────────────────────
+
+# Supervisor-injected metadata (set by start.sh before each launch)
+_STARTED_AT    = os.getenv("APP_STARTED_AT", "")
+_PID           = os.getpid()
+_RESTART_COUNT = int(os.getenv("APP_RESTART_COUNT", "0"))
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -96,6 +116,12 @@ _pipe_base    = None   # StableDiffusionXLImg2ImgPipeline — model CPU offload
 _pipe_cn      = None   # StableDiffusionXLControlNetImg2ImgPipeline — sequential CPU offload
 _pipe_inpaint = None   # StableDiffusionXLInpaintPipeline — for short→long hair transformations
 
+# Z-Image pipeline singletons
+_zpipe_img2img = None  # ZImageImg2ImgPipeline
+_zpipe_inpaint = None  # ZImageInpaintPipeline
+_zpipe_cn      = None  # ZImageControlNetPipeline (text2img + ControlNet)
+_zpipe_cn_inp  = None  # ZImageControlNetInpaintPipeline
+
 _HF_OFFLINE = os.getenv("HF_HUB_OFFLINE", "0") == "1"
 
 
@@ -120,13 +146,18 @@ def _free_gpu_memory() -> None:
     the weights.
     """
     global _pipe_base, _pipe_cn, _pipe_inpaint
+    global _zpipe_img2img, _zpipe_inpaint, _zpipe_cn, _zpipe_cn_inp
     try:
         from accelerate.hooks import remove_hook_from_submodules as _rm_hooks
     except ImportError:
         _rm_hooks = None
 
     with _pipe_lock:
-        for pipe in (_pipe_base, _pipe_cn, _pipe_inpaint):
+        all_pipes = (
+            _pipe_base, _pipe_cn, _pipe_inpaint,
+            _zpipe_img2img, _zpipe_inpaint, _zpipe_cn, _zpipe_cn_inp,
+        )
+        for pipe in all_pipes:
             if pipe is not None:
                 if _rm_hooks is not None:
                     try:
@@ -136,6 +167,10 @@ def _free_gpu_memory() -> None:
         _pipe_base    = None
         _pipe_cn      = None
         _pipe_inpaint = None
+        _zpipe_img2img = None
+        _zpipe_inpaint = None
+        _zpipe_cn      = None
+        _zpipe_cn_inp  = None
 
     gc.collect()
     if torch.cuda.is_available():
@@ -264,6 +299,63 @@ def _get_pipeline(with_controlnet: bool = False, inpaint: bool = False):
             _pipe_cn.enable_sequential_cpu_offload()
             log.info("ControlNet pipeline ready (sequential CPU offload)")
         return _pipe_cn
+
+
+def _get_zimage_pipeline(inpaint: bool = False, with_controlnet: bool = False):
+    from diffusers import (
+        ZImageImg2ImgPipeline,
+        ZImageInpaintPipeline,
+        ZImageControlNetPipeline,
+        ZImageControlNetInpaintPipeline,
+        ZImageControlNetModel,
+    )
+    global _zpipe_img2img, _zpipe_inpaint, _zpipe_cn, _zpipe_cn_inp
+
+    with _pipe_lock:
+        if with_controlnet and inpaint:
+            if _zpipe_cn_inp is None:
+                log.info("Loading ZImageControlNetInpaintPipeline from %s …", ZIMAGE_MODEL)
+                cn = ZImageControlNetModel.from_pretrained(
+                    ZIMAGE_CONTROLNET_MODEL, torch_dtype=torch.bfloat16
+                )
+                _zpipe_cn_inp = ZImageControlNetInpaintPipeline.from_pretrained(
+                    ZIMAGE_MODEL, controlnet=cn, torch_dtype=torch.bfloat16
+                )
+                _zpipe_cn_inp.enable_model_cpu_offload()
+                log.info("ZImageControlNetInpaintPipeline ready")
+            return _zpipe_cn_inp
+
+        if with_controlnet:
+            if _zpipe_cn is None:
+                log.info("Loading ZImageControlNetPipeline from %s …", ZIMAGE_MODEL)
+                cn = ZImageControlNetModel.from_pretrained(
+                    ZIMAGE_CONTROLNET_MODEL, torch_dtype=torch.bfloat16
+                )
+                _zpipe_cn = ZImageControlNetPipeline.from_pretrained(
+                    ZIMAGE_MODEL, controlnet=cn, torch_dtype=torch.bfloat16
+                )
+                _zpipe_cn.enable_model_cpu_offload()
+                log.info("ZImageControlNetPipeline ready")
+            return _zpipe_cn
+
+        if inpaint:
+            if _zpipe_inpaint is None:
+                log.info("Loading ZImageInpaintPipeline from %s …", ZIMAGE_MODEL)
+                _zpipe_inpaint = ZImageInpaintPipeline.from_pretrained(
+                    ZIMAGE_MODEL, torch_dtype=torch.bfloat16
+                )
+                _zpipe_inpaint.enable_model_cpu_offload()
+                log.info("ZImageInpaintPipeline ready")
+            return _zpipe_inpaint
+
+        if _zpipe_img2img is None:
+            log.info("Loading ZImageImg2ImgPipeline from %s …", ZIMAGE_MODEL)
+            _zpipe_img2img = ZImageImg2ImgPipeline.from_pretrained(
+                ZIMAGE_MODEL, torch_dtype=torch.bfloat16
+            )
+            _zpipe_img2img.enable_model_cpu_offload()
+            log.info("ZImageImg2ImgPipeline ready")
+        return _zpipe_img2img
 
 
 # ── InsightFace singleton ──────────────────────────────────────
@@ -636,6 +728,77 @@ def run_sd(selfie_path: str, output_path: str,
     log.debug("run_sd done")
 
 
+def run_zimage(selfie_path: str, output_path: str,
+               prompt: str, neg_prompt: str,
+               strength: float, steps: int, cfg: float,
+               seed: int, width: int, height: int,
+               control_image_path: str | None = None,
+               mask_path: str | None = None) -> None:
+    use_inpaint = mask_path is not None and os.path.isfile(mask_path)
+    use_cn = (
+        bool(control_image_path)
+        and ZIMAGE_CONTROLNET_ENABLED
+        and os.path.isfile(str(control_image_path))
+        and not use_inpaint
+    )
+
+    if cfg != 0.0:
+        log.debug("run_zimage: overriding cfg=%.2f → 0.0 (Z-Image Turbo is CFG-distilled)", cfg)
+
+    log.debug("run_zimage | use_inpaint=%s use_cn=%s seed=%d steps=%d strength=%.2f | %s",
+              use_inpaint, use_cn, seed, steps, strength, _cuda_mem_stats())
+
+    generator = (
+        torch.Generator(device="cuda").manual_seed(seed)
+        if seed != -1 else None
+    )
+
+    init_image = Image.open(selfie_path).convert("RGB").resize((width, height))
+    pipe = _get_zimage_pipeline(inpaint=use_inpaint, with_controlnet=use_cn)
+
+    common = dict(
+        prompt=prompt,
+        num_inference_steps=steps,
+        guidance_scale=0.0,
+        generator=generator,
+    )
+
+    if use_inpaint:
+        assert mask_path is not None
+        mask_image = Image.open(mask_path).convert("L").resize((width, height))
+        if use_cn:
+            assert control_image_path is not None
+            control_image = Image.open(control_image_path).convert("RGB").resize((width, height))
+            result = pipe(
+                **common,
+                image=init_image,
+                mask_image=mask_image,
+                control_image=control_image,
+                strength=strength,
+                controlnet_conditioning_scale=ZIMAGE_CONTROLNET_STRENGTH,
+            )
+        else:
+            result = pipe(**common, image=init_image, mask_image=mask_image, strength=strength)
+
+    elif use_cn:
+        # ZImageControlNetPipeline is text-to-image; init_image is used as control only
+        assert control_image_path is not None
+        control_image = Image.open(control_image_path).convert("RGB").resize((width, height))
+        result = pipe(
+            **common,
+            control_image=control_image,
+            controlnet_conditioning_scale=ZIMAGE_CONTROLNET_STRENGTH,
+            height=height,
+            width=width,
+        )
+
+    else:
+        result = pipe(**common, image=init_image, strength=strength)
+
+    result.images[0].save(output_path)
+    log.debug("run_zimage done")
+
+
 # ── routes ────────────────────────────────────────────────────
 
 @app.route("/")
@@ -744,9 +907,11 @@ def transfer_haircut():
             if control_path is None:
                 log.warning("Canny generation failed, proceeding without ControlNet")
 
-        # ── run SD with ControlNet/inpaint retry fallback ────
+        # ── dispatch to inference backend with retry fallback ────
+        _run_fn = run_zimage if INFERENCE_BACKEND == "zimage" else run_sd
+
         try:
-            run_sd(
+            _run_fn(
                 selfie_path        = selfie_resized,
                 output_path        = output_path,
                 prompt             = prompt,
@@ -763,7 +928,7 @@ def transfer_haircut():
         except (RuntimeError, torch.cuda.OutOfMemoryError) as e:
             if control_path or mask_path:
                 log.warning("Pipeline run failed, retrying without ControlNet/inpaint: %s", e)
-                run_sd(
+                _run_fn(
                     selfie_path        = selfie_resized,
                     output_path        = output_path,
                     prompt             = prompt,
@@ -825,14 +990,25 @@ def transfer_haircut():
 
 @app.route("/health", methods=["GET"])
 def health():
+    if INFERENCE_BACKEND == "zimage":
+        _model    = ZIMAGE_MODEL
+        _cn_on    = ZIMAGE_CONTROLNET_ENABLED
+        _cn_model = ZIMAGE_CONTROLNET_MODEL
+    else:
+        _model    = MODEL_PATH
+        _cn_on    = CONTROLNET_ENABLED
+        _cn_model = CONTROLNET_MODEL
     return jsonify(
         status             = "ok",
-        inference_backend  = "diffusers",
+        inference_backend  = INFERENCE_BACKEND,
         torch_device       = "cuda" if torch.cuda.is_available() else "cpu",
-        model              = MODEL_PATH,
-        controlnet_enabled = CONTROLNET_ENABLED,
-        controlnet_model   = CONTROLNET_MODEL,
+        model              = _model,
+        controlnet_enabled = _cn_on,
+        controlnet_model   = _cn_model,
         faceswap_enabled   = FACESWAP_ENABLED,
+        started_at         = _STARTED_AT,
+        pid                = _PID,
+        restart_count      = _RESTART_COUNT,
     )
 
 
@@ -840,8 +1016,12 @@ def health():
 
 if __name__ == "__main__":
     log.info("Haircut Transfer API starting on %s:%s", HOST, PORT)
-    log.info("Backend        : diffusers / torch %s / cuda=%s", torch.__version__, torch.cuda.is_available())
-    log.info("Model          : %s", MODEL_PATH)
-    log.info("ControlNet     : %s (enabled=%s)", CONTROLNET_MODEL, CONTROLNET_ENABLED)
+    log.info("Backend        : %s / torch %s / cuda=%s", INFERENCE_BACKEND, torch.__version__, torch.cuda.is_available())
+    if INFERENCE_BACKEND == "zimage":
+        log.info("Model          : %s", ZIMAGE_MODEL)
+        log.info("ControlNet     : %s (enabled=%s)", ZIMAGE_CONTROLNET_MODEL, ZIMAGE_CONTROLNET_ENABLED)
+    else:
+        log.info("Model          : %s", MODEL_PATH)
+        log.info("ControlNet     : %s (enabled=%s)", CONTROLNET_MODEL, CONTROLNET_ENABLED)
     log.info("Face swap      : %s (enabled=%s)", INSWAPPER_MODEL, FACESWAP_ENABLED)
     app.run(host=HOST, port=PORT, debug=False)

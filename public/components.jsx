@@ -43,7 +43,7 @@ function TopBar({ view, setView, lookbookCount }) {
 }
 
 // ── Selfie capture / preview / processing / result panel ────────────────────
-function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUrl, apiError, onClearStyle }) {
+function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUrl, apiError, onClearStyle, onRetry }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const fileRef = useRef(null);
@@ -131,6 +131,8 @@ function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUr
   const showPreview = state === 'preview';
   const showProcessing = state === 'processing';
   const showResult = state === 'result';
+  const showServerDown = state === 'server-down';
+  const showServerRecovered = state === 'server-recovered';
 
   return (
     <section className="selfie-panel">
@@ -182,7 +184,7 @@ function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUr
           </div>
         )}
 
-        {(showPreview || showProcessing) && selfie && (
+        {(showPreview || showProcessing || showServerDown || showServerRecovered) && selfie && (
           <div className="preview-stage">
             <img src={selfie} alt="Your selfie" className="preview-img" />
             {showProcessing && (
@@ -197,6 +199,9 @@ function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUr
                   <div className="proc-bar"><div className="proc-bar-fill" style={{ width: `${processingPct}%` }} /></div>
                 </div>
               </div>
+            )}
+            {(showServerDown || showServerRecovered) && (
+              <ServerDownOverlay recovered={showServerRecovered} onRetry={onRetry} />
             )}
             {showPreview && (
               <div className="preview-toolbar">
@@ -223,6 +228,34 @@ function SelfiePanel({ state, setState, selfie, setSelfie, resultStyle, resultUr
         </div>
       )}
     </section>
+  );
+}
+
+function ServerDownOverlay({ recovered, onRetry }) {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    if (recovered) return;
+    const id = setInterval(() => setDots((d) => d.length >= 3 ? '' : d + '.'), 600);
+    return () => clearInterval(id);
+  }, [recovered]);
+
+  return (
+    <div className="processing-overlay">
+      <div className="processing-scan server-down-scan" />
+      <div className="processing-card">
+        <div className="proc-spinner server-down-spinner" aria-hidden="true" />
+        <div className="proc-text">
+          <div className="proc-label">{recovered ? 'Server is back' : 'Server restarting…'}</div>
+          <div className="proc-sub">
+            {recovered ? 'Your request is ready to retry.' : `Waiting for inference server${dots}`}
+          </div>
+        </div>
+        {recovered
+          ? <button className="btn btn-primary server-down-retry" onClick={onRetry}>Retry</button>
+          : <div className="proc-bar"><div className="proc-bar-fill server-down-bar" style={{ width: '100%' }} /></div>
+        }
+      </div>
+    </div>
   );
 }
 
