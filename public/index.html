@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Maison Coupe — AI Hairstyle Visualization for Salons</title>
+  <title>sd-hairstyle — AI Hairstyle Visualization for Salons</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@400;500;600&display=swap" />
@@ -99,7 +99,7 @@
     .hero-note { font-size: .8125rem; color: var(--ink-faint); }
 
     .hero-visual {
-      background: var(--bg-soft);
+      background: #f2ebe3;
       border: 1px solid var(--line);
       border-radius: 8px;
       aspect-ratio: 4/5;
@@ -357,12 +357,10 @@
 <!-- ── Navigation ──────────────────────────────────────────────── -->
 <nav>
   <div class="nav-inner">
-    <a class="nav-logo" href="/">MAISON COUPE</a>
+    <a class="nav-logo" href="/">sd-hairstyle</a>
     <ul class="nav-links">
-      <li><a href="#features">Features</a></li>
       <li><a href="#how-it-works">How it works</a></li>
       <li><a href="#styles">Styles</a></li>
-      <li><a href="#pricing">Pricing</a></li>
     </ul>
     <a class="nav-cta" href="#demo">Request a demo</a>
   </div>
@@ -375,12 +373,17 @@
       <div class="hero-copy">
         <p class="hero-eyebrow">AI Hairstyle Visualization</p>
         <h1>Let clients see their next look — before the first snip</h1>
-        <p>Maison Coupe gives your salon a private, on-premise AI that shows clients exactly how a new hairstyle will look on them. No subscriptions. No cloud uploads. Just confident clients and fewer second thoughts.</p>
+        <p>sd-hairstyle gives your salon a cloud-powered AI hairstyle visualizer. Clients see exactly how a new style will look on them — in about 30 seconds, from any device. No guessing. No second thoughts.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#demo">Request a demo</a>
           <a class="btn btn-ghost" href="/studio">Try the studio →</a>
         </div>
-        <p class="hero-note" style="margin-top: 16px;">Ships with a pre-configured GPU workstation. Plug in and start.</p>
+        <p class="hero-note" style="margin-top: 16px;">No installation required. Works on tablet, phone, and desktop.</p>
+      </div>
+      <div class="hero-visual">
+        <img src="https://raw.githubusercontent.com/alx/sd-hairstyle/gh-pages/static/landing_choose_look.png"
+             alt="Client choosing a hairstyle in sd-hairstyle"
+             style="width:100%; height:100%; object-fit:contain; display:block;" />
       </div>
     </div>
   </div>
@@ -395,49 +398,17 @@
         <div class="stat-label">Curated hairstyle styles</div>
       </div>
       <div>
-        <div class="stat-number">&lt;10s</div>
+        <div class="stat-number">~30s</div>
         <div class="stat-label">Average preview generation time</div>
       </div>
       <div>
-        <div class="stat-number">100%</div>
-        <div class="stat-label">On-premise — client data never leaves your salon</div>
+        <div class="stat-number">Any device</div>
+        <div class="stat-label">Works in any browser — tablet, phone, or desktop</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── Features ─────────────────────────────────────────────────── -->
-<section id="features">
-  <div class="wrap">
-    <div class="features-header">
-      <h2>Built for salons, not data centers</h2>
-      <p>Everything runs locally on a dedicated GPU workstation. Fast, private, and completely yours.</p>
-    </div>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 1 1 0 10A5 5 0 0 1 12 2zm0 12c5.33 0 8 2.67 8 4v2H4v-2c0-1.33 2.67-4 8-4z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <h3>Instant client consultations</h3>
-        <p>Upload a selfie, pick a style, and show a photorealistic preview in seconds — right at the styling chair. No more guessing or flipping through magazines.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <h3>Fully private, no cloud</h3>
-        <p>All processing happens on hardware inside your salon. Client photos are never sent to external servers, never stored permanently, never shared. Compliance is effortless.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-        <h3>Zero recurring costs</h3>
-        <p>One purchase, one setup, zero monthly fees. After delivery your system runs independently — no API keys to renew, no subscription tiers, no usage caps.</p>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- ── How it works ──────────────────────────────────────────────── -->
 <section id="how-it-works">
@@ -455,44 +426,46 @@
       <div class="step">
         <div class="step-num">2</div>
         <h3>Choose a style</h3>
-        <p>Browse 12 curated cuts — classic, edgy, minimal — and tap one to visualize.</p>
+        <p>Browse our curated cuts — classic, edgy, minimal — and tap one to visualize.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <h3>See the result</h3>
-        <p>The AI renders a photorealistic preview on the client's face in seconds. Book it or try another.</p>
+        <p>The AI renders a photorealistic preview on the client's face in about 30 seconds. Book it or try another.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── Benefits ──────────────────────────────────────────────────── -->
-<section class="benefits">
+
+<!-- ── What sets us apart ────────────────────────────────────────── -->
+<section id="features">
   <div class="wrap">
-    <div class="benefits-header">
-      <h2>Why salons choose Maison Coupe</h2>
-      <p>The ROI shows up in your booking calendar within the first week.</p>
+    <div class="features-header">
+      <h2>What sets sd-hairstyle apart</h2>
+      <p>Designed for the salon floor, not the back office.</p>
     </div>
-    <div class="benefits-grid">
-      <div class="benefit-item">
-        <span class="benefit-num">01</span>
-        <h3>Reduce consultation time by half</h3>
-        <p>Stop spending 20 minutes describing what a lob looks like. Show it. Clients decide faster when they can see.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Secure by design</h3>
+        <p>Client photos are processed on our servers and never stored permanently. Privacy-first and GDPR-compliant by default.</p>
       </div>
-      <div class="benefit-item">
-        <span class="benefit-num">02</span>
-        <h3>Increase premium service conversion</h3>
-        <p>Clients are significantly more likely to commit to a dramatic change — color, major cut, texture — after seeing a realistic preview.</p>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Works on any device</h3>
+        <p>No app to install, no hardware to maintain. Open a browser on your salon tablet or phone and you're ready in seconds.</p>
       </div>
-      <div class="benefit-item">
-        <span class="benefit-num">03</span>
-        <h3>Stand out from every competitor</h3>
-        <p>AI hairstyle visualization is still rare in salons. Offering it signals that your salon invests in the client experience.</p>
-      </div>
-      <div class="benefit-item">
-        <span class="benefit-num">04</span>
-        <h3>Works with your existing hardware</h3>
-        <p>No iPads to replace, no new software subscriptions. We deliver a ready-to-run workstation that plugs into your network in under five minutes.</p>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h3>Accurate, not generic</h3>
+        <p>Our AI is trained specifically on hairstyle transformations — not repurposed selfie filters. Results your clients will actually trust.</p>
       </div>
     </div>
   </div>
@@ -502,8 +475,8 @@
 <section id="styles">
   <div class="wrap">
     <div class="catalog-header">
-      <h2>12 curated styles, ready to visualize</h2>
-      <p>Each style is hand-crafted for accurate visualization — not generic AI templates. New styles ship with software updates.</p>
+      <h2>A selection of our styles</h2>
+      <p>Each style is hand-crafted for accurate visualization. New styles are added with every update.</p>
     </div>
     <div class="catalog-grid">
       <div class="catalog-item">
@@ -512,34 +485,9 @@
         <div class="catalog-item-mood">Classic · Short</div>
       </div>
       <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/sidepart.jpg" alt="Side Part" loading="lazy" />
-        <div class="catalog-item-name">Side Part</div>
-        <div class="catalog-item-mood">Classic · Medium</div>
-      </div>
-      <div class="catalog-item">
         <img class="catalog-img" src="static/haircuts/pixie.jpg" alt="Audrey Pixie" loading="lazy" />
         <div class="catalog-item-name">Audrey Pixie</div>
         <div class="catalog-item-mood">Classic · Short</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/lob.jpg" alt="Layered Lob" loading="lazy" />
-        <div class="catalog-item-name">Layered Lob</div>
-        <div class="catalog-item-mood">Classic · Medium</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/mullet.jpg" alt="Modern Mullet" loading="lazy" />
-        <div class="catalog-item-name">Modern Mullet</div>
-        <div class="catalog-item-mood">Edgy · Medium</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/fade.jpg" alt="Skin Fade" loading="lazy" />
-        <div class="catalog-item-name">Skin Fade</div>
-        <div class="catalog-item-mood">Edgy · Short</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/asym.jpg" alt="Asymmetric Shag" loading="lazy" />
-        <div class="catalog-item-name">Asymmetric Shag</div>
-        <div class="catalog-item-mood">Edgy · Medium</div>
       </div>
       <div class="catalog-item">
         <img class="catalog-img" src="static/haircuts/wolf.jpg" alt="Wolf Cut" loading="lazy" />
@@ -551,21 +499,6 @@
         <div class="catalog-item-name">Slick Back</div>
         <div class="catalog-item-mood">Minimal · Medium</div>
       </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/crop.jpg" alt="French Crop" loading="lazy" />
-        <div class="catalog-item-name">French Crop</div>
-        <div class="catalog-item-mood">Minimal · Short</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/curtain.jpg" alt="Curtain Bangs" loading="lazy" />
-        <div class="catalog-item-name">Curtain Bangs</div>
-        <div class="catalog-item-mood">Minimal · Long</div>
-      </div>
-      <div class="catalog-item">
-        <img class="catalog-img" src="static/haircuts/blunt.jpg" alt="Blunt One-Length" loading="lazy" />
-        <div class="catalog-item-name">Blunt One-Length</div>
-        <div class="catalog-item-mood">Minimal · Long</div>
-      </div>
     </div>
     <div style="text-align:center; margin-top: 48px;">
       <a class="btn btn-ghost" href="/studio">Try the live studio →</a>
@@ -573,34 +506,6 @@
   </div>
 </section>
 
-<!-- ── Pricing ────────────────────────────────────────────────────── -->
-<section id="pricing">
-  <div class="wrap">
-    <div class="pricing-header">
-      <h2>Simple, transparent pricing</h2>
-      <p>One custom installation, fully yours. No seat licences, no monthly bills, no surprises.</p>
-    </div>
-    <div class="pricing-card">
-      <div class="pricing-top">
-        <h3>Salon Custom Instance</h3>
-        <p>A dedicated system configured for your salon and delivered ready to run.</p>
-        <div class="pricing-price">Custom <span>/ one-time</span></div>
-        <p style="font-size:.8125rem; margin-top: 4px; opacity:.5;">Contact us for a quote tailored to your setup</p>
-      </div>
-      <div class="pricing-body">
-        <ul class="pricing-features">
-          <li>Pre-configured GPU workstation, shipped and installed</li>
-          <li>All 12 hairstyle styles included, more on request</li>
-          <li>On-site setup and staff walkthrough</li>
-          <li>12 months of software updates and support</li>
-          <li>White-label option — your salon branding, not ours</li>
-          <li>Client data never leaves your premises</li>
-        </ul>
-        <a class="btn btn-primary pricing-cta" href="#demo">Request a quote</a>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- ── Demo request form ─────────────────────────────────────────── -->
 <section class="form-section" id="demo">
@@ -673,7 +578,7 @@
 <!-- ── Footer ────────────────────────────────────────────────────── -->
 <footer>
   <div class="footer-inner">
-    <span class="footer-brand">MAISON COUPE</span>
+    <span class="footer-brand">sd-hairstyle</span>
     <span class="footer-meta">AI hairstyle visualization for professional salons</span>
   </div>
 </footer>
